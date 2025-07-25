@@ -1,9 +1,10 @@
-import argparse
 import pandas as pd
 import yaml
 import unicodedata
 import re
 from datetime import datetime
+from pathlib import Path
+import sys
 
 # ---------- Transformations Registry ----------
 def normalize_text(series, lowercase=True, strip_accents=True, trim=True):
@@ -104,12 +105,13 @@ def handle_duplicates(df, key, action, latest_by=None):
     return df, dup_count
 
 def enforce_allowed_values(df, column, allowed):
-    if column not in df.columns: return df, 0
+    if column not in df.columns:
+        return df, 0
     mask = ~df[column].isin(allowed) & df[column].notna()
     df.loc[mask, column] = "otro"
     return df, mask.sum()
 
-# ---------- Main Runner ----------
+# ---------- Transformation Runner ----------
 def apply_transforms(df, config):
     out_df = pd.DataFrame()
     for target_col, rule in config['mappings'].items():
@@ -122,84 +124,70 @@ def apply_transforms(df, config):
         out_df[target_col] = temp_series
     return out_df
 
-def main(input_path, config_path):
+# ---------- Main Execution ----------
+def main(config_path):
+    # Carga configuración
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
-    # Ingesta
-    if input_path.lower().endswith(".xlsx"):
-        df = pd.read_excel(input_path)
-    else:
-        df = pd.read_csv(input_path, sep=None, engine='python')
+    input_paths = config.get('input_files', [])
+    if not input_paths:
+        raise ValueError("Debe especificar 'input_files' en el archivo de configuración.")
 
-    # Transformación
-    clean_df = apply_transforms(df, config)
+    # Expandir directorios y archivos
+    files_to_process = []
+    for path_str in input_paths:
+        p = Path(path_str)
+        if p.is_dir():
+            for ext in ('*.xlsx', '*.xls', '*.csv'):
+                files_to_process.extend(p.glob(ext))
+        elif p.is_file():
+            files_to_process.append(p)
+        else:
+            print(f"Ruta no encontrada: {p}")
 
-    # Calidad
-    logs = {}
-    # Duplicados
-    dup_cfg = config.get('quality', {}).get('duplicates', {})
-    if dup_cfg:
-        clean_df, dup_count = handle_duplicates(clean_df, dup_cfg.get('key'), dup_cfg.get('action'), dup_cfg.get('latest_by'))
-        logs['duplicados'] = dup_count
+    # Procesar cada archivo encontrado
+    for input_path in files_to_process:
+        # Leer datos
+        if input_path.suffix.lower() in ['.xlsx', '.xls']:
+            df = pd.read_excel(input_path)
+        else:
+            df = pd.read_csv(input_path, sep=None, engine='python')
 
-    # Valores permitidos
-    allowed_cfg = config.get('quality', {}).get('allowed_values', {})
-    invalid_counts = {}
-    for col, allowed in allowed_cfg.items():
-        clean_df, invalid_count = enforce_allowed_values(clean_df, col, allowed)
-        invalid_counts[col] = invalid_count
-    logs['valores_fuera_de_catalogo'] = invalid_counts
+        # Transformaciones
+        clean_df = apply_transforms(df, config)
 
-    # Nulos
-    null_counts = clean_df.isna().sum().to_dict()
-    logs['nulos_por_columna'] = null_counts
+        # Calidad: duplicados
+        dup_cfg = config.get('quality', {}).get('duplicates', {})
+        if dup_cfg:
+            clean_df, _ = handle_duplicates(
+                clean_df,
+                dup_cfg.get('key'),
+                dup_cfg.get('action'),
+                dup_cfg.get('latest_by')
+            )
+        # Calidad: valores permitidos
+        for col, allowed in config.get('quality', {}).get('allowed_values', {}).items():
+            clean_df, _ = enforce_allowed_values(clean_df, col, allowed)
 
-    # Salida
-    out = config['output']
-    if out['format'] == 'xlsx':
-        clean_df.to_excel(out['file_name'], index=False, sheet_name=out.get('sheet_name', 'Sheet1'))
-    else:
-        clean_df.to_csv(out['file_name'], index=False, sep=';')
+        # Preparar salida
+        suffix = config.get('output', {}).get('suffix', '_clean')
+        out_dir = Path(config.get('output', {}).get('dir', input_path.parent))
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_name = f"{input_path.stem}{suffix}{input_path.suffix}"
+        out_path = out_dir / out_name
 
-    # Reporte simple
-    summary_df = pd.DataFrame([{
-    "registros_totales": len(clean_df),
-    "duplicados_eliminados_o_marcados": logs.get("duplicados", 0)
-    }])
+        # Guardar según formato
+        fmt = config['output'].get('format', 'xlsx')
+        if fmt == 'xlsx':
+            clean_df.to_excel(out_path, index=False, sheet_name=config['output'].get('sheet_name', 'Sheet1'))
+        else:
+            clean_df.to_csv(out_path, index=False, sep=';')
 
-    # --- Nulos por columna ---
-    nulls_df = (
-        pd.Series(logs.get("nulos_por_columna", {}), name="nulos")
-        .reset_index()
-        .rename(columns={"index": "columna"})
-        .sort_values("nulos", ascending=False)
-    )
+        print(f"Archivo generado: {out_path}")
 
-    # --- Valores fuera de catálogo ---
-    invalid_df = (
-        pd.Series(logs.get("valores_fuera_de_catalogo", {}), name="fuera_de_catalogo")
-        .reset_index()
-        .rename(columns={"index": "columna"})
-        .sort_values("fuera_de_catalogo", ascending=False)
-    )
-
-    print("Transformación completada.")
-    print("Archivo generado:", out['file_name'])
-    print("\n=== RESUMEN ===")
-    print(summary_df.to_string(index=False, justify="center", col_space=15))
-
-    print("\n=== NULOS POR COLUMNA ===")
-    print(nulls_df.to_string(index=False, justify="center", col_space=20))
-
-    print("\n=== FUERA DE CATÁLOGO ===")
-    print(invalid_df.to_string(index=False, justify="center", col_space=20))
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input", required=True, help="Ruta del dataset original.")
-    parser.add_argument("-c", "--config", required=True, help="Ruta del archivo YAML de configuración.")
-    args = parser.parse_args()
-
-    main(args.input, args.config)
+if __name__ == '__main__':
+    if len(sys.argv) != 2:
+        print("Uso: python script.py ruta/al/config.yaml")
+        sys.exit(1)
+    main(sys.argv[1])

@@ -1,4 +1,11 @@
-# Define columnas finales y sus tipos
+input_files:
+  - "./data/source/"
+
+output:
+  dir: "./data/source_limpio/"
+  format: "xlsx"
+
+# (el resto de tu config original ...)
 schema:
   mesa_de_ayuda: string
   nivel: int
@@ -15,13 +22,12 @@ schema:
   subcategoria: string
   accion: string
 
-# Cómo obtenemos cada columna final
 mappings:
   mesa_de_ayuda:
     source: "Mesa de ayuda"
     transforms:
       - { name: "normalize_text", lowercase: true, strip_accents: true, trim: true }
-      - { name: "remove_pattern", pattern: "nivel\\s*\\d+" }  # elimina "nivel X"
+      - { name: "remove_pattern", pattern: "nivel\\s*\\d+" }
   nivel:
     source: "Mesa de ayuda"
     transforms:
@@ -45,7 +51,7 @@ mappings:
   fecha_creacion:
     source: "Fecha de creación"
     transforms:
-      - { name: "to_datetime", format: null }   # intenta parseo flexible
+      - { name: "to_datetime", format: null }
       - { name: "to_isoformat" }
   fecha_cierre:
     source: "Fecha de cierre"
@@ -82,19 +88,12 @@ mappings:
       - { name: "split_by_rest", delimiter: ">", start_index: 3, join_with: " > " }
       - { name: "normalize_text", lowercase: true, strip_accents: true, trim: true }
 
-# Reglas de calidad
 quality:
   duplicates:
     key: "id"
-    action: "keep_latest"   # keep_latest, mark, or drop
+    action: "keep_latest"
     latest_by: "fecha_creacion"
   allowed_values:
     estado: ["abierto", "cerrado", "en espera", "otro"]
   null_handling:
     fill_with_null: true
-
-# Opciones de salida
-output:
-  format: "xlsx"
-  sheet_name: "Sheet1"
-  file_name: "dataset_limpio_generico.xlsx"
