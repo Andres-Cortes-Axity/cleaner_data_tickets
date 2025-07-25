@@ -1,5 +1,5 @@
 input_files:
-  - "./data/source/"
+  - "./data/source/dataset.xlsx"
 
 output:
   dir: "./data/source_limpio/"
@@ -62,6 +62,7 @@ mappings:
     source: "Asunto"
     transforms:
       - { name: "trim" }
+      - { name: "normalize_text", lowercase: true}
   fecha_solucion:
     source: "Fecha de solución"
     transforms:
