@@ -90,6 +90,30 @@ def split_by_rest(series, delimiter=">", start_index=2, join_with=" > "):
         return None
     return series.apply(_split_rest)
 
+def reencode(series, from_enc="utf-16", to_enc="utf-8"):
+    """
+    Decodifica cada valor (bytes o str) desde `from_enc` y lo recodifica a `to_enc`.
+    """
+    def _conv(x):
+        if pd.isna(x):
+            return x
+        # si es bytes, decodifica; si no, conviértelo a str
+        if isinstance(x, (bytes, bytearray)):
+            try:
+                text = x.decode(from_enc)
+            except:
+                text = x.decode(from_enc, errors="ignore")
+        else:
+            text = str(x)
+        # recodifica a bytes UTF‑8 y de nuevo a str
+        try:
+            b = text.encode(to_enc, errors="ignore")
+            return b.decode(to_enc, errors="ignore")
+        except:
+            return text
+
+    return series.apply(_conv)
+
 # ---------- TRANSFORMS Dictionary ----------
 TRANSFORMS = {
     "normalize_text": normalize_text,
@@ -102,6 +126,7 @@ TRANSFORMS = {
     "strip_leading_zeros": strip_leading_zeros,
     "split_by": split_by,
     "split_by_rest": split_by_rest,
+    "reencode": reencode,
 }
 
 # ---------- Quality Functions ----------
