@@ -24,25 +24,53 @@ def normalize_text(series, lowercase=True, strip_accents=True, trim=True):
 
 def remove_pattern(series, pattern):
     regex = re.compile(pattern, flags=re.IGNORECASE)
-    return series.apply(lambda x: regex.sub("", str(x)) if pd.notna(x) else x)
+
+    def _remove(x):
+        if pd.isna(x):
+            return x
+        s = regex.sub("", str(x))
+        # eliminamos espacios múltiples y recortamos
+        s = re.sub(r"\s+", " ", s).strip()
+        return s
+
+    return series.apply(_remove)
+
 
 
 def regex_extract(series, pattern, group=1, as_type=None):
     regex = re.compile(pattern, flags=re.IGNORECASE)
-    def _extract(x):
+
+    if as_type == 'int':
+        # Creamos explícitamente una lista de Python ints/None
+        def _extract_int(x):
+            if pd.isna(x):
+                return None
+            m = regex.search(str(x))
+            if not m:
+                return None
+            try:
+                return int(m.group(group))
+            except:
+                return None
+
+        # Devolvemos un Series de dtype object, para que None se mantenga None
+        return pd.Series(
+            [_extract_int(x) for x in series],
+            index=series.index,
+            dtype=object
+        )
+
+    # Caso por defecto: devolvemos strings y None
+    def _extract_str(x):
         if pd.isna(x):
             return None
         m = regex.search(str(x))
         if not m:
             return None
-        val = m.group(group)
-        if as_type == 'int':
-            try:
-                return int(val)
-            except:
-                return None
-        return val
-    return series.apply(_extract)
+        return m.group(group)
+
+    return series.apply(_extract_str)
+
 
 
 def to_datetime(series, format=None):

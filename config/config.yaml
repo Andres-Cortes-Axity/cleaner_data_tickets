@@ -1,11 +1,11 @@
 input_files:
-  - "./data/source/dataset.xlsx"
+  - "./data/source/"
 
 output:
   dir: "./data/source_limpio/"
   format: "xlsx"
 
-# (el resto de tu config original ...)
+
 schema:
   mesa_de_ayuda: string
   nivel: int
