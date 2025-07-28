@@ -1,0 +1,29 @@
+# virtual environments
+venv/
+.venv/
+gevenv/
+env/
+ENV/
+
+# Python and pytest caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# metadata, builds, and distributions
+*.egg-info/
+build/
+dist/
+
+# version control
+.git/
+.gitignore
+
+# system files
+.DS_Store
+
+# cleaned data or other files that shouldn’t go into the image
+data/source_limpio/*.xlsx

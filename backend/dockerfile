@@ -1,0 +1,20 @@
+# Use Python 3.12
+FROM python:3.12
+
+# Set /app as the working directory
+WORKDIR /app
+
+# Copy requirements.txt (located at project root)
+COPY requirements.txt .
+
+# Install dependencies + pytest
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir pytest
+
+# Copy the entire project into /app
+# (building with: docker build -f backend/Dockerfile . uses the project root as context)
+COPY . .
+
+# Define the default command
+# This runs your main script
+CMD ["python", "scripts/cleaner_2.py", "config/config.yaml"]
