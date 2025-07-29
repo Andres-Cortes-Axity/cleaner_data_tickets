@@ -1,30 +1,32 @@
+# List of input files or directories to process (accepts .xlsx, .xls, .csv)
 input_files:
   - "./data/source/"
-
+# Output settings: directory and format for cleaned files
 output:
   dir: "./data/source_limpio/"
   format: "xlsx"
 
-
+# Schema definitions: expected data types for each field
 schema:
-  mesa_de_ayuda: string
-  nivel: int
-  prioridad: string
-  origen: string
-  estado: string
-  tipo: string
-  fecha_creacion: datetime
-  fecha_cierre: datetime
-  asunto: string
-  fecha_solucion: datetime
-  id: string
-  categoria_principal: string
-  subcategoria: string
-  accion: string
+  mesa_de_ayuda: string       # Name of help desk or support queue
+  nivel: int                  # Ticket priority level or severity
+  prioridad: string           # Ticket priority as text
+  origen: string              # Source system or reporting channel
+  estado: string              # Ticket status
+  tipo: string                # Ticket type or classification
+  fecha_creacion: datetime    # Creation timestamp of the ticket
+  fecha_cierre: datetime      # Closing timestamp of the ticket
+  asunto: string              # Subject or summary of the ticket
+  fecha_solucion: datetime    # Resolution timestamp
+  id: string                  # Unique identifier for each ticket
+  categoria_principal: string # Main category of the ticket
+  subcategoria: string        # Subcategory of the ticket
+  accion: string              # Action or next steps extracted from category
 
+# Field mappings and transformations applied after reading each column
 mappings:
   mesa_de_ayuda:
-    source: "Mesa de ayuda"
+    source: "Mesa de ayuda" # Column name in source file
     transforms:
       - { name: "normalize_text", lowercase: true, strip_accents: true, trim: true }
       - { name: "remove_pattern", pattern: "nivel\\s*\\d+" }
@@ -89,12 +91,13 @@ mappings:
       - { name: "split_by_rest", delimiter: ">", start_index: 3, join_with: " > " }
       - { name: "normalize_text", lowercase: true, strip_accents: true, trim: true }
 
+# Quality checks configuration: duplicates and allowed values
 quality:
   duplicates:
-    key: "id"
-    action: "keep_latest"
-    latest_by: "fecha_creacion"
+    key: "id"     # Column to identify duplicate rows
+    action: "keep_latest" # Action to take (e.g., drop or keep latest)
+    latest_by: "fecha_creacion"   # Column to determine which record is latest
   allowed_values:
-    estado: ["abierto", "cerrado", "en espera", "otro"]
+    estado: ["abierto", "cerrado", "en espera", "otro"] # Permitted status values
   null_handling:
-    fill_with_null: true
+    fill_with_null: true    # Whether to explicitly fill missing values with null
