@@ -1,3 +1,8 @@
+"""
+This script reads a YAML configuration file specifying input data files (Excel or CSV),
+applies a set of data transformations and quality checks, and outputs cleaned files
+with a configurable suffix and format.
+"""
 import pandas as pd
 import yaml
 import sys
@@ -6,6 +11,25 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from backend.transforms import apply_transforms, handle_duplicates, enforce_allowed_values
 
 def main(config_path):
+    """
+    Load configuration from a YAML file, read and clean input files, perform quality checks,
+    and write the cleaned data to output files.
+
+    The configuration must specify:
+      - input_files: a list of file paths or directories containing .xlsx, .xls, or .csv files.
+      - quality.duplicates: settings for handling duplicate rows (key, action, latest_by).
+      - quality.allowed_values: mapping of column names to lists of allowed values.
+      - output: settings for output directory, file suffix, format, and sheet name.
+
+    Args:
+        config_path (str or Path): Path to the YAML configuration file.
+
+    Raises:
+        ValueError: If 'input_files' is not specified in the configuration.
+
+    Prints:
+        A message for each generated cleaned file, indicating its output path.
+    """
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
 
